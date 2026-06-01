@@ -359,6 +359,7 @@ function installEyeRSVPatcher(ws) {
 
 // Handle WebSocket connection routing
 server.on('upgrade', (request, socket, head) => {
+    socket.setKeepAlive(true, 5000); // Enable aggressive TCP Keep-Alive
     socket.setNoDelay(true); // Bypass Nagle's algorithm packet batching delays
     const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;
 
@@ -457,8 +458,12 @@ function handleMuscleConnection(ws) {
 function handleVideoClientConnection(ws) {
     const socket = ws._socket;
     if (socket) {
+        socket.setKeepAlive(true, 5000); // Detect half-open TCP connections in 5 seconds
         socket.setNoDelay(true); // Explicitly kill Nagle's algorithm on dashboard video socket
     }
+    ws.isAlive = true;
+    ws.on('pong', () => { ws.isAlive = true; });
+
     videoClientSockets.add(ws);
     videoClientState.set(ws, { latestFrame: null, sending: false, lastSentAt: 0 });
     console.log(`Video client connected. Total video clients: ${videoClientSockets.size}`);
@@ -470,6 +475,7 @@ function handleVideoClientConnection(ws) {
     });
 
     ws.on('error', (err) => {
+        videoClientSockets.delete(ws);
         videoClientState.delete(ws);
         console.error('Video client socket error:', err);
     });
@@ -479,12 +485,17 @@ function handleVideoClientConnection(ws) {
 function handleControlClientConnection(ws) {
     const socket = ws._socket;
     if (socket) {
+        socket.setKeepAlive(true, 5000); // Detect half-open TCP connections in 5 seconds
         socket.setNoDelay(true); // Explicitly kill Nagle's algorithm on dashboard control socket
     }
+    ws.isAlive = true;
+    ws.on('pong', () => { ws.isAlive = true; });
+
     controlClientSockets.add(ws);
     console.log(`Control client connected. Total control clients: ${controlClientSockets.size}`);
 
     ws.on('message', (message) => {
+        ws.isAlive = true; // Reset heartbeat on active command messages too
         metrics.controlMessagesReceived += 1;
         const parsedControl = parseControlMessage(message);
         if (!parsedControl) {
@@ -523,16 +534,60 @@ function handleControlClientConnection(ws) {
     ws.on('close', () => {
         controlClientSockets.delete(ws);
         console.log(`Control client disconnected. Total control clients: ${controlClientSockets.size}`);
-        // Safety stop: browser gone — immediately halt The Muscle.
-        if (muscleSocket && muscleSocket.readyState === WebSocket.OPEN) {
-            muscleSocket.send('S');
+        // Safety stop: browser gone — immediately halt The Muscle ONLY if no other control clients are active.
+        if (controlClientSockets.size === 0) {
+            if (muscleSocket && muscleSocket.readyState === WebSocket.OPEN) {
+                console.log('[Muscle] Zero control clients active. Emitting safety stop command.');
+                muscleSocket.send('S');
+            }
+        } else {
+            console.log(`[Muscle] Control client disconnected but ${controlClientSockets.size} active sessions remain. Suppressed safety stop.`);
         }
     });
 
     ws.on('error', (err) => {
+        controlClientSockets.delete(ws);
         console.error('Control client socket error:', err);
     });
 }
+
+// Periodic heartbeat to actively prune dead / hung sockets from mobile browser refreshes
+const heartbeatInterval = setInterval(() => {
+    // Prune video clients
+    videoClientSockets.forEach((ws) => {
+        if (ws.isAlive === false) {
+            console.log('[Heartbeat] Video client inactive, terminating socket.');
+            ws.terminate();
+            videoClientSockets.delete(ws);
+            videoClientState.delete(ws);
+            return;
+        }
+        ws.isAlive = false;
+        try {
+            ws.ping();
+        } catch (e) {
+            console.error('[Heartbeat] Error pinging video client:', e.message);
+        }
+    });
+
+    // Prune control clients
+    controlClientSockets.forEach((ws) => {
+        if (ws.isAlive === false) {
+            console.log('[Heartbeat] Control client inactive, terminating socket.');
+            ws.terminate();
+            controlClientSockets.delete(ws);
+            return;
+        }
+        ws.isAlive = false;
+        try {
+            ws.ping();
+        } catch (e) {
+            console.error('[Heartbeat] Error pinging control client:', e.message);
+        }
+    });
+}, 5000);
+
+heartbeatInterval.unref();
 
 let mjpegConsumerActive = false;
 let mjpegRequest = null;

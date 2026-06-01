@@ -565,6 +565,23 @@
         const originalError = console.error;
         const originalWarn = console.warn;
 
+        // --- Autoplay Hardening ---
+        function wakeMediaPlayer() {
+            const videoTag = document.getElementById('cameraStream');
+            if (videoTag && videoTag.srcObject && videoTag.paused) {
+                console.log("[Autoplay Hardening] Waking WebRTC video player...");
+                videoTag.play().catch(err => {
+                    console.warn("[Autoplay Hardening] Waking play failed:", err.message);
+                });
+            }
+            window.removeEventListener('click', wakeMediaPlayer);
+            window.removeEventListener('touchstart', wakeMediaPlayer);
+            window.removeEventListener('keydown', wakeMediaPlayer);
+        }
+        window.addEventListener('click', wakeMediaPlayer);
+        window.addEventListener('touchstart', wakeMediaPlayer, { passive: true });
+        window.addEventListener('keydown', wakeMediaPlayer);
+
         function sendRemoteLog(type, args) {
             const msg = Array.from(args).map(arg => {
                 if (typeof arg === 'object') {
@@ -819,23 +836,33 @@
             // Handle incoming track
             pc.ontrack = (event) => {
                 console.log("WebRTC video track received!");
-                if (webrtcTimeout) {
-                    clearTimeout(webrtcTimeout);
-                    webrtcTimeout = null;
-                }
 
                 if (fallbackImg) {
                     fallbackImg.style.display = 'none';
                     fallbackImg.src = '';
                 }
                 videoTag.style.display = 'block';
+
+                // Playing event supervisor: safely clear the fallback timeout only when frames are rendering
+                videoTag.addEventListener('playing', () => {
+                    console.log("WebRTC video element started playing!");
+                    if (webrtcTimeout) {
+                        clearTimeout(webrtcTimeout);
+                        webrtcTimeout = null;
+                    }
+                    liveDot.classList.add('active');
+                    streamLabel.innerText = "LIVE WebRTC VIDEO";
+                    robotStatusEl.innerText = "Online";
+                    robotStatusEl.className = "tel-value status-online";
+                    updateSystemStatus();
+                }, { once: true });
+
                 videoTag.srcObject = event.streams[0];
                 
-                liveDot.classList.add('active');
-                streamLabel.innerText = "LIVE WebRTC VIDEO";
-                robotStatusEl.innerText = "Online";
-                robotStatusEl.className = "tel-value status-online";
-                updateSystemStatus();
+                // Kickstart mobile Chrome's hardware decoding
+                videoTag.play().catch(err => {
+                    console.warn("[Autoplay Hardening] WebRTC play() blocked by autoplay rules:", err.message);
+                });
             };
 
             // Setup receive-only transceivers
@@ -1160,12 +1187,16 @@
         Object.values(directionToButton).forEach((button) => {
             const direction = button.dataset.direction;
 
-            button.addEventListener('mousedown', () => startDrive(direction));
+            button.addEventListener('mousedown', () => {
+                wakeMediaPlayer();
+                startDrive(direction);
+            });
             button.addEventListener('mouseup', () => stopDrive(direction));
             button.addEventListener('mouseleave', () => stopDrive(direction, true));
 
             button.addEventListener('touchstart', (event) => {
                 event.preventDefault();
+                wakeMediaPlayer();
                 startDrive(direction);
             }, { passive: false });
             button.addEventListener('touchend', (event) => {
@@ -1175,7 +1206,10 @@
             button.addEventListener('touchcancel', () => stopDrive(direction, true));
         });
 
-        stopButton.addEventListener('click', () => sendEmergencyStop());
+        stopButton.addEventListener('click', () => {
+            wakeMediaPlayer();
+            sendEmergencyStop();
+        });
 
         const keyToDirection = {
             w: 'forward',
