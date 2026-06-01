@@ -2,6 +2,8 @@
 
 ### Turn your local Wi-Fi toy into an internet-accessible rover. 
 
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/rorrimaesu)
+
 This repository contains an open-source, dual-board teleoperation framework built to eliminate the classic voltage sag and network lag bottlenecks found in standard commercial robot car kits.
 
 ---
@@ -103,4 +105,16 @@ The following open architecture tasks are ready for immediate execution the mome
 ### Part B: Deep-Dive Protocol Transitions (Industrial Teleoperation Upgrades)
 1. **WebRTC Integration on ESP32-S3:** Investigate utilizing the open-source `esp_peer` component library or the Stream Video ESP32 SDK layer. Shifting your vision system from TCP WebSockets to native UDP-based WebRTC allows for real-time video transmission that completely ignores dropped packets, dropping end-to-end video age below 200ms across wide-area networks.
 2. **Persistent Named Tunnels:** Upgrade the connection configuration away from public, ephemeral Cloudflare Quick Tunnels (`trycloudflare.com`) to a static, authenticated, free-tier Named Cloudflare Tunnel. This anchors your server behind a permanent, dedicated edge routing node and provides a consistent domain name bookmark that remains identical through every system restart.
+
+---
+
+## ☕ Support the Project
+
+**Has this isolated dual-brain architecture saved your robot from brownouts and telemetry lag?** 🤖⚡
+
+Building custom WAN-teleoperated rovers requires endless hours of hardware troubleshooting, wireless signal tuning, and custom network protocol engineering. If this framework saved you days of debugging and helped you bring your Elegoo Smart Car to life over the internet, consider supporting further development!
+
+Your sponsorship helps fund new hardware testing, upcoming features (like WebRTC migration & real-time IMU telemetry mapping), and keeps this open-source engineering alive.
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support%20the%20Project-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/rorrimaesu)
 ```
