@@ -587,20 +587,6 @@
         const streamLabel = document.getElementById('stream-label');
         const stopButton = document.getElementById('btn-S');
 
-        // High-frequency catch-up script to destroy browser video element buffer drift
-        const video = document.getElementById('cameraStream');
-        if (video) {
-            video.addEventListener('timeupdate', () => {
-                if (video.buffered.length > 0) {
-                    const liveEdge = video.buffered.end(video.buffered.length - 1);
-                    const latency = liveEdge - video.currentTime;
-                    if (latency > 0.25) {
-                        video.currentTime = liveEdge - 0.05; 
-                    }
-                }
-            });
-        }
-
         const directionToButton = {
             forward: document.getElementById('btn-F'),
             backward: document.getElementById('btn-B'),
@@ -698,7 +684,10 @@
                 const magic = view.getUint32(0);
                 if (magic !== 0x45594531) return; // 'EYE1'
 
-                const sourceTsMs = Number(view.getBigInt64(4));
+                // Read 64-bit integer using high and low 32-bit words for maximum mobile compatibility
+                const high = view.getUint32(4);
+                const low = view.getUint32(8);
+                const sourceTsMs = high * 4294967296 + low;
                 const payloadLen = view.getUint32(20);
 
                 const jpegData = new Uint8Array(buffer, 24, payloadLen);
