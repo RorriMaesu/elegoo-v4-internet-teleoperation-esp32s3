@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
+    <title>Elegoo SmartCar Online Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-grad: radial-gradient(circle at center, #140d24 0%, #07050e 100%);
+            --glass-bg: rgba(255, 255, 255, 0.04);
+            --glass-border: rgba(255, 255, 255, 0.07);
+            --accent-cyan: #00f0ff;
+            --accent-magenta: #ff007f;
+            --accent-green: #39ff14;
+            --accent-red: #ff2a2a;
+            --text-main: #f3effa;
+            --text-mute: #7e7596;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            background: var(--bg-grad);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+            padding: 20px;
+        }
+
+        header {
+            margin-bottom: 20px;
+            text-align: center;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 2px;
+            text-shadow: 0 4px 15px rgba(0, 240, 255, 0.15);
+        }
+
+        .subtitle {
+            font-size: 0.9rem;
+            color: var(--text-mute);
+            letter-spacing: 1px;
+            margin-top: 5px;
+            text-transform: uppercase;
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 1.3fr 1fr;
+            gap: 25px;
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 900px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 24px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .glass-panel:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 12px 40px 0 rgba(0, 240, 255, 0.04);
+        }
+
+        /* Video Feed */
+        .video-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 18px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .video-container img,
+        .video-container canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 18px;
+        }
+
+        .video-overlay {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(7, 5, 14, 0.75);
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--glass-border);
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            pointer-events: none;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-red);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--accent-red);
+        }
+
+        .live-dot.active {
+            background-color: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+            animation: pulse 1.5s infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            100% { transform: scale(1.2); opacity: 1; }
+        }
+
+        /* Telemetry Grid */
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .telemetry-item {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.02);
+            border-radius: 16px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tel-label {
+            font-size: 0.75rem;
+            color: var(--text-mute);
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .tel-value {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .status-offline {
+            color: var(--accent-red);
+            text-shadow: 0 0 10px rgba(255, 42, 42, 0.3);
+        }
+
+        .status-online {
+            color: var(--accent-green);
+            text-shadow: 0 0 10px rgba(57, 255, 20, 0.3);
+        }
+
+        /* D-Pad Steering Controls */
+        .dpad-container {
+            display: grid;
+            grid-template-columns: repeat(3, 85px);
+            grid-template-rows: repeat(3, 85px);
+            gap: 15px;
+            justify-content: center;
+            align-content: center;
+            margin: 20px 0;
+        }
+
+        .btn-ctrl {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 20px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            outline: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn-ctrl svg {
+            width: 32px;
+            height: 32px;
+            fill: currentColor;
+            transition: transform 0.15s ease;
+        }
+
+        .btn-ctrl:hover {
+            background: rgba(255, 255, 255, 0.07);
+            color: var(--accent-cyan);
+            border-color: rgba(0, 240, 255, 0.25);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.08);
+        }
+
+        .btn-ctrl:active, .btn-ctrl.active {
+            background: rgba(0, 240, 255, 0.12);
+            color: var(--accent-cyan);
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.3);
+            transform: scale(0.92);
+        }
+
+        .btn-stop {
+            grid-column: 2;
+            grid-row: 2;
+            background: rgba(255, 0, 127, 0.04);
+            border-color: rgba(255, 0, 127, 0.12);
+            color: var(--accent-magenta);
+        }
+
+        .btn-stop:hover {
+            background: rgba(255, 0, 127, 0.08);
+            color: var(--accent-magenta);
+            border-color: rgba(255, 0, 127, 0.3);
+            box-shadow: 0 0 15px rgba(255, 0, 127, 0.08);
+        }
+
+        .btn-stop:active, .btn-stop.active {
+            background: rgba(255, 0, 127, 0.16);
+            color: var(--accent-magenta);
+            border-color: var(--accent-magenta);
+            box-shadow: 0 0 25px rgba(255, 0, 127, 0.3);
+        }
+
+        .btn-up { grid-column: 2; grid-row: 1; }
+        .btn-left { grid-column: 1; grid-row: 2; }
+        .btn-right { grid-column: 3; grid-row: 2; }
+        .btn-down { grid-column: 2; grid-row: 3; }
+
+        .key-legend {
+            font-size: 0.8rem;
+            color: var(--text-mute);
+            text-align: center;
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 14px;
+            background: rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.01);
+            width: 100%;
+        }
+
+        .key-badge {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 2px 6px;
+            border-radius: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #fff;
+            font-size: 0.75rem;
+            font-family: 'Space Grotesk', monospace;
+            margin: 0 2px;
+        }
+
+        footer {
+            margin-top: 35px;
+            color: var(--text-mute);
+            font-size: 0.8rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>ELEGOO SMART CAR</h1>
+        <p class="subtitle">Internet Teleoperation Portal</p>
+    </header>
+
+    <div class="main-container">
+        <!-- Live Video Feed Panel -->
+        <div class="glass-panel">
+            <div class="video-container">
+                <canvas id="cameraStream"></canvas>
+                <div class="video-overlay">
+                    <div id="live-dot" class="live-dot"></div>
+                    <span id="stream-label">STREAM OFFLINE</span>
+                </div>
+            </div>
+            
+            <div class="telemetry-grid">
+                <div class="telemetry-item">
+                    <span class="tel-label">Connection Status</span>
+                    <span id="sys-status" class="tel-value status-offline">Connecting...</span>
+                </div>
+                <div class="telemetry-item">
+                    <span class="tel-label">Robot Status</span>
+                    <span id="robot-status" class="tel-value status-offline">Offline</span>
+                </div>
+                <div class="telemetry-item">
+                    <span class="tel-label">Last Operation</span>
+                    <span id="last-cmd" class="tel-value">STOPPED</span>
+                </div>
+                <div class="telemetry-item">
+                    <span class="tel-label">Link Latency</span>
+                    <span id="latency" class="tel-value">-- ms</span>
+                </div>
+                <div class="telemetry-item">
+                    <span class="tel-label">Frame Age @ Render</span>
+                    <span id="frame-age" class="tel-value">-- ms</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Steering Panel -->
+        <div class="glass-panel">
+            <h3 style="font-family: 'Space Grotesk', sans-serif; letter-spacing: 1px; margin-bottom: 20px;">STEERING PANEL</h3>
+            
+            <div class="dpad-container">
+                <!-- Forward -->
+                <button class="btn-ctrl btn-up" id="btn-F" data-direction="forward">
+                    <svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5H7z"/></svg>
+                </button>
+
+                <!-- Left -->
+                <button class="btn-ctrl btn-left" id="btn-L" data-direction="left">
+                    <svg viewBox="0 0 24 24"><path d="M14 17l-5-5 5-5v10z"/></svg>
+                </button>
+
+                <!-- Stop -->
+                <button class="btn-ctrl btn-stop" id="btn-S">
+                    <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                </button>
+
+                <!-- Right -->
+                <button class="btn-ctrl btn-right" id="btn-R" data-direction="right">
+                    <svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5v10z"/></svg>
+                </button>
+
+                <!-- Backward -->
+                <button class="btn-ctrl btn-down" id="btn-B" data-direction="backward">
+                    <svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>
+                </button>
+            </div>
+
+            <div class="key-legend">
+                <span>Keyboard controls active:</span><br>
+                <div style="margin-top: 5px;">
+                    <span class="key-badge">W</span> / <span class="key-badge">&uarr;</span> Forward &bull;
+                    <span class="key-badge">S</span> / <span class="key-badge">&darr;</span> Backward<br>
+                    <span class="key-badge">A</span> / <span class="key-badge">&larr;</span> Left &bull;
+                    <span class="key-badge">D</span> / <span class="key-badge">&rarr;</span> Right &bull;
+                    <span class="key-badge">Space</span> Stop
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>Teleoperation Portal &bull; Antigravity 2026</p>
+    </footer>
+
+    <script>
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const videoWsUrl = `${protocol}//${window.location.host}/video-stream`;
+        const controlWsUrl = `${protocol}//${window.location.host}/control-stream`;
+
+        let videoWs = null;
+        let controlWs = null;
+        let isConnectingVideo = false;
+        let isConnectingControl = false;
+        let activeDirection = null;
+        let controlSequence = 0;
+        let pingSequence = 0;
+        let controlPingTimer = null;
+        const pendingPings = new Map();
+        const FRAME_PACKET_MAGIC = 0x45594531; // 'EYE1'
+        const FRAME_PACKET_HEADER_BYTES = 24;
+
+        const statusEl = document.getElementById('sys-status');
+        const robotStatusEl = document.getElementById('robot-status');
+        const lastCmdEl = document.getElementById('last-cmd');
+        const latencyEl = document.getElementById('latency');
+        const frameAgeEl = document.getElementById('frame-age');
+        const cameraStream = document.getElementById('cameraStream');
+        const cameraCtx = cameraStream.getContext('2d');
+        const liveDot = document.getElementById('live-dot');
+        const streamLabel = document.getElementById('stream-label');
+        const stopButton = document.getElementById('btn-S');
+
+        const directionToButton = {
+            forward: document.getElementById('btn-F'),
+            backward: document.getElementById('btn-B'),
+            left: document.getElementById('btn-L'),
+            right: document.getElementById('btn-R')
+        };
+
+        const activeDirectionKeys = [];
+
+        function parseFramePacket(arrayBuffer) {
+            if (!(arrayBuffer instanceof ArrayBuffer)) {
+                return null;
+            }
+
+            if (arrayBuffer.byteLength < FRAME_PACKET_HEADER_BYTES) {
+                return {
+                    frameBlob: new Blob([arrayBuffer], { type: 'image/jpeg' }),
+                    sourceTsMs: null,
+                    relaySentTsMs: null
+                };
+            }
+
+            const view = new DataView(arrayBuffer);
+            const magic = view.getUint32(0, false);
+            if (magic !== FRAME_PACKET_MAGIC) {
+                return {
+                    frameBlob: new Blob([arrayBuffer], { type: 'image/jpeg' }),
+                    sourceTsMs: null,
+                    relaySentTsMs: null
+                };
+            }
+
+            const sourceTsMs = Number(view.getBigInt64(4, false));
+            const relaySentTsMs = Number(view.getBigInt64(12, false));
+            const jpegLength = view.getUint32(20, false);
+            const expectedLength = FRAME_PACKET_HEADER_BYTES + jpegLength;
+            if (expectedLength > arrayBuffer.byteLength || jpegLength <= 0) {
+                return null;
+            }
+
+            return {
+                frameBlob: new Blob([arrayBuffer.slice(FRAME_PACKET_HEADER_BYTES, expectedLength)], { type: 'image/jpeg' }),
+                sourceTsMs,
+                relaySentTsMs
+            };
+        }
+
+        function updateSystemStatus() {
+            const videoOpen = videoWs && videoWs.readyState === WebSocket.OPEN;
+            const controlOpen = controlWs && controlWs.readyState === WebSocket.OPEN;
+
+            if (videoOpen && controlOpen) {
+                statusEl.innerText = 'Connected (Dual Lane)';
+                statusEl.className = 'tel-value status-online';
+            } else if (videoOpen || controlOpen) {
+                statusEl.innerText = 'Partial Link';
+                statusEl.className = 'tel-value';
+            } else {
+                statusEl.innerText = 'Offline';
+                statusEl.className = 'tel-value status-offline';
+            }
+        }
+
+        function connectVideoLane() {
+            if (isConnectingVideo || (videoWs && videoWs.readyState === WebSocket.OPEN)) {
+                return;
+            }
+            isConnectingVideo = true;
+
+            console.log(`Connecting video lane: ${videoWsUrl}`);
+            videoWs = new WebSocket(videoWsUrl);
+            videoWs.binaryType = 'arraybuffer';
+
+            videoWs.onopen = () => {
+                isConnectingVideo = false;
+                updateSystemStatus();
+                checkRobotStatus();
+            };
+
+            let frameDecoding = false;
+            videoWs.onmessage = (event) => {
+                if (!(event.data instanceof ArrayBuffer)) {
+                    return;
+                }
+
+                // Drop incoming frame if a decode is already in progress — prevents browser queue buildup.
+                if (frameDecoding) {
+                    return;
+                }
+
+                const packet = parseFramePacket(event.data);
+                if (!packet || !packet.frameBlob) {
+                    return;
+                }
+
+                frameDecoding = true;
+                const decodeStart = performance.now();
+                const receiveTsMs = Date.now();
+                createImageBitmap(packet.frameBlob).then((bitmap) => {
+                    cameraStream.width = bitmap.width;
+                    cameraStream.height = bitmap.height;
+                    cameraCtx.drawImage(bitmap, 0, 0);
+                    bitmap.close();
+
+                    const renderTsMs = Date.now();
+                    if (Number.isFinite(packet.sourceTsMs)) {
+                        const frameAgeAtRenderMs = Math.max(0, renderTsMs - packet.sourceTsMs);
+                        frameAgeEl.innerText = `${frameAgeAtRenderMs} ms`;
+                    }
+
+                    if (Number.isFinite(packet.relaySentTsMs)) {
+                        const relayToBrowserMs = Math.max(0, receiveTsMs - packet.relaySentTsMs);
+                        streamLabel.innerText = `LIVE VIDEO FEED (${relayToBrowserMs}ms lane)`;
+                    } else {
+                        streamLabel.innerText = 'LIVE VIDEO FEED';
+                    }
+
+                    const decodeMs = Math.round(performance.now() - decodeStart);
+                    if (decodeMs > 40) {
+                        console.debug(`Frame decode time high: ${decodeMs}ms`);
+                    }
+
+                    frameDecoding = false;
+                }).catch(() => { frameDecoding = false; });
+
+                liveDot.classList.add('active');
+                robotStatusEl.innerText = 'Online';
+                robotStatusEl.className = 'tel-value status-online';
+            };
+
+            videoWs.onclose = () => {
+                isConnectingVideo = false;
+                liveDot.classList.remove('active');
+                streamLabel.innerText = 'STREAM OFFLINE';
+                frameAgeEl.innerText = '-- ms';
+                updateSystemStatus();
+                setTimeout(connectVideoLane, 2000);
+            };
+
+            videoWs.onerror = (err) => {
+                console.error('Video lane error:', err);
+                videoWs.close();
+            };
+        }
+
+        function connectControlLane() {
+            if (isConnectingControl || (controlWs && controlWs.readyState === WebSocket.OPEN)) {
+                return;
+            }
+            isConnectingControl = true;
+
+            console.log(`Connecting control lane: ${controlWsUrl}`);
+            controlWs = new WebSocket(controlWsUrl);
+
+            controlWs.onopen = () => {
+                isConnectingControl = false;
+                updateSystemStatus();
+                checkRobotStatus();
+                if (controlPingTimer) {
+                    clearInterval(controlPingTimer);
+                }
+                controlPingTimer = setInterval(() => {
+                    if (!controlWs || controlWs.readyState !== WebSocket.OPEN) {
+                        return;
+                    }
+
+                    const seq = ++pingSequence;
+                    pendingPings.set(seq, performance.now());
+                    controlWs.send(JSON.stringify({ type: 'ping', seq, ts: Date.now() }));
+
+                    if (pendingPings.size > 10) {
+                        const oldestKey = pendingPings.keys().next().value;
+                        pendingPings.delete(oldestKey);
+                    }
+                }, 3000);
+            };
+
+            controlWs.onmessage = (event) => {
+                if (typeof event.data === 'string') {
+                    try {
+                        const payload = JSON.parse(event.data);
+                        if (payload.type === 'pong' && Number.isFinite(payload.seq)) {
+                            const sentAt = pendingPings.get(payload.seq);
+                            if (typeof sentAt === 'number') {
+                                const rttMs = Math.round(performance.now() - sentAt);
+                                pendingPings.delete(payload.seq);
+                                latencyEl.innerText = `${rttMs} ms`;
+                            }
+                            return;
+                        }
+
+                        if (payload.error) {
+                            console.warn('Control lane warning:', payload.error);
+                        }
+                    } catch (_err) {
+                        console.log('Control lane message:', event.data);
+                    }
+                }
+            };
+
+            controlWs.onclose = () => {
+                isConnectingControl = false;
+                if (controlPingTimer) {
+                    clearInterval(controlPingTimer);
+                    controlPingTimer = null;
+                }
+                pendingPings.clear();
+                sendEmergencyStop(true);
+                latencyEl.innerText = '-- ms';
+                updateSystemStatus();
+                setTimeout(connectControlLane, 2000);
+            };
+
+            controlWs.onerror = (err) => {
+                console.error('Control lane error:', err);
+                controlWs.close();
+            };
+        }
+
+        function sendControlMessage(text, silent = false) {
+            if (controlWs && controlWs.readyState === WebSocket.OPEN) {
+                controlSequence += 1;
+                controlWs.send(JSON.stringify({
+                    type: 'control',
+                    command: text,
+                    clientTs: Date.now(),
+                    seq: controlSequence
+                }));
+                return true;
+            }
+
+            if (!silent) {
+                console.warn(`Control lane unavailable; dropped '${text}'`);
+            }
+            return false;
+        }
+
+        function updateDirectionalButtons(direction) {
+            Object.keys(directionToButton).forEach((dir) => {
+                directionToButton[dir].classList.toggle('active', dir === direction);
+            });
+        }
+
+        function setLastCommandLabel(direction, state) {
+            if (state === 'stop') {
+                lastCmdEl.innerText = 'STOPPED';
+                return;
+            }
+
+            const labels = {
+                forward: 'FORWARD',
+                backward: 'BACKWARD',
+                left: 'TURN LEFT',
+                right: 'TURN RIGHT'
+            };
+            lastCmdEl.innerText = labels[direction] || 'STOPPED';
+        }
+
+        function startDrive(direction) {
+            if (activeDirection === direction) {
+                return;
+            }
+
+            if (activeDirection) {
+                stopDrive(activeDirection, true);
+            }
+
+            const sent = sendControlMessage(`drive:${direction},start`);
+            if (!sent) {
+                return;
+            }
+
+            activeDirection = direction;
+            updateDirectionalButtons(direction);
+            setLastCommandLabel(direction, 'start');
+        }
+
+        function stopDrive(direction, silent = false) {
+            if (!direction) {
+                return;
+            }
+
+            const sent = sendControlMessage(`drive:${direction},stop`, silent);
+            if (!sent && !silent) {
+                return;
+            }
+
+            if (activeDirection === direction) {
+                activeDirection = null;
+            }
+
+            updateDirectionalButtons(null);
+            setLastCommandLabel(direction, 'stop');
+        }
+
+        function sendEmergencyStop(silent = false) {
+            sendControlMessage('drive:all,stop', silent);
+            activeDirection = null;
+            updateDirectionalButtons(null);
+            stopButton.classList.add('active');
+            setTimeout(() => stopButton.classList.remove('active'), 150);
+            setLastCommandLabel('all', 'stop');
+        }
+
+        function checkRobotStatus() {
+            fetch('/status')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.eyeConnected && data.muscleConnected) {
+                        robotStatusEl.innerText = 'Online';
+                        robotStatusEl.className = 'tel-value status-online';
+                    } else {
+                        robotStatusEl.innerText = 'Offline';
+                        robotStatusEl.className = 'tel-value status-offline';
+                        liveDot.classList.remove('active');
+                        streamLabel.innerText = 'STREAM OFFLINE';
+                        latencyEl.innerText = '-- ms';
+                        frameAgeEl.innerText = '-- ms';
+                    }
+                })
+                .catch(() => console.warn('Failed to check robot status'));
+        }
+
+        function activateDirectionFromKeys() {
+            if (activeDirectionKeys.length === 0) {
+                if (activeDirection) {
+                    stopDrive(activeDirection);
+                }
+                return;
+            }
+
+            const latestDirection = activeDirectionKeys[activeDirectionKeys.length - 1];
+            startDrive(latestDirection);
+        }
+
+        Object.values(directionToButton).forEach((button) => {
+            const direction = button.dataset.direction;
+
+            button.addEventListener('mousedown', () => startDrive(direction));
+            button.addEventListener('mouseup', () => stopDrive(direction));
+            button.addEventListener('mouseleave', () => stopDrive(direction, true));
+
+            button.addEventListener('touchstart', (event) => {
+                event.preventDefault();
+                startDrive(direction);
+            }, { passive: false });
+            button.addEventListener('touchend', (event) => {
+                event.preventDefault();
+                stopDrive(direction);
+            }, { passive: false });
+            button.addEventListener('touchcancel', () => stopDrive(direction, true));
+        });
+
+        stopButton.addEventListener('click', () => sendEmergencyStop());
+
+        const keyToDirection = {
+            w: 'forward',
+            ArrowUp: 'forward',
+            s: 'backward',
+            ArrowDown: 'backward',
+            a: 'left',
+            ArrowLeft: 'left',
+            d: 'right',
+            ArrowRight: 'right'
+        };
+
+        window.addEventListener('keydown', (event) => {
+            if (event.key === ' ') {
+                event.preventDefault();
+                sendEmergencyStop();
+                activeDirectionKeys.length = 0;
+                return;
+            }
+
+            if (event.repeat) {
+                return;
+            }
+
+            const key = keyToDirection[event.key] || keyToDirection[event.key.toLowerCase()];
+            if (!key) {
+                return;
+            }
+
+            if (!activeDirectionKeys.includes(key)) {
+                activeDirectionKeys.push(key);
+            }
+            activateDirectionFromKeys();
+        });
+
+        window.addEventListener('keyup', (event) => {
+            const key = keyToDirection[event.key] || keyToDirection[event.key.toLowerCase()];
+            if (!key) {
+                return;
+            }
+
+            const index = activeDirectionKeys.indexOf(key);
+            if (index >= 0) {
+                activeDirectionKeys.splice(index, 1);
+            }
+
+            activateDirectionFromKeys();
+        });
+
+        window.addEventListener('blur', () => {
+            activeDirectionKeys.length = 0;
+            sendEmergencyStop(true);
+        });
+
+        window.addEventListener('beforeunload', () => {
+            activeDirectionKeys.length = 0;
+            sendEmergencyStop(true);
+        });
+
+        setInterval(checkRobotStatus, 4000);
+        connectVideoLane();
+        connectControlLane();
+        updateSystemStatus();
+    </script>
+</body>
+</html>
