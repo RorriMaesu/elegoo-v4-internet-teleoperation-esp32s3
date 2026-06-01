@@ -19,8 +19,8 @@ const videoClientSockets = new Set();
 const controlClientSockets = new Set();
 const videoClientState = new Map();
 const MAX_CLIENT_BUFFERED_BYTES = 32 * 1024;
-const STALE_FRAME_AGE_MS = 300;   // drop relay→browser frames older than this (ms)
-const MIN_RELAY_SEND_MS = 80;     // cap relay→browser transmission at ~12fps
+const STALE_FRAME_AGE_MS = 150;   // drop relay→browser frames older than this (ms)
+const MIN_RELAY_SEND_MS = 0;      // Unleashed: completely disable artificial rate-limiting
 const FRAME_PACKET_MAGIC = 0x45594531; // 'EYE1'
 const FRAME_PACKET_HEADER_BYTES = 24;
 const relayStartedAt = Date.now();
@@ -159,8 +159,9 @@ function flushLatestFrame(client) {
         return;
     }
 
-    // Slow clients are never allowed to build deep queues.
-    if (client.bufferedAmount > MAX_CLIENT_BUFFERED_BYTES) {
+    // Absolute Egress Backpressure Culling: If the browser's WAN network pipe is even slightly
+    // congested, instantly throw the frame in the trash to prevent a backup queue over the tunnel.
+    if (client.bufferedAmount > 0) {
         state.latestFrame = null;
         metrics.videoFramesDroppedByBackpressure += 1;
         return;
@@ -190,11 +191,38 @@ function flushLatestFrame(client) {
 // Serve the static frontend files
 app.use(express.static(path.join(__dirname, '../Remote_Control_Dashboard')));
 
+// --- WebRTC WHEP Reverse Proxy (go2rtc Bridge) ---
+// Proxies WHEP HTTP POST signaling handshakes directly to the local go2rtc server.
+// This allows both the Dashboard and WebRTC video to run over a single Cloudflare Quick Tunnel!
+app.post('/api/whep', (req, res) => {
+    const headers = { ...req.headers };
+    // Override host header to match go2rtc local port to prevent routing/proxy mismatches
+    headers['host'] = '127.0.0.1:1984';
+
+    const proxyReq = http.request({
+        host: '127.0.0.1',
+        port: 1984,
+        path: '/api/webrtc?src=robot_eye',
+        method: 'POST',
+        headers: headers
+    }, (proxyRes) => {
+        res.writeHead(proxyRes.statusCode, proxyRes.headers);
+        proxyRes.pipe(res);
+    });
+
+    req.pipe(proxyReq);
+
+    proxyReq.on('error', (err) => {
+        console.error('[WebRTC Proxy] Failed to connect to go2rtc on Port 1984:', err.message);
+        res.status(502).send('go2rtc gateway offline');
+    });
+});
+
 // Status diagnostic endpoint
 app.get('/status', (req, res) => {
     res.json({
-        eyeConnected:    !!eyeSocket    && eyeSocket.readyState    === WebSocket.OPEN,
-        muscleConnected: !!muscleSocket && muscleSocket.readyState === WebSocket.OPEN,
+        eyeConnected:    !!eyeSocket    && (eyeSocket.readyState    === 1 || eyeSocket.readyState    === WebSocket.OPEN),
+        muscleConnected: !!muscleSocket && (muscleSocket.readyState === 1 || muscleSocket.readyState === WebSocket.OPEN),
         clientsConnected: controlClientSockets.size,
         videoSubscribers: videoClientSockets.size,
         uptimeMs: Date.now() - relayStartedAt,
@@ -242,8 +270,8 @@ function installEyeRSVPatcher(ws) {
                 pos += skip;
             } else {
                 // Frame boundary: byte at pos is header byte 0.
-                // Clear RSV2 (bit 5) and RSV3 (bit 4).
-                chunk[pos] &= 0xCF;
+                // Clear RSV1 (0x40), RSV2 (0x20), and RSV3 (0x10) protocol extension bits.
+                chunk[pos] &= 0x8F;
 
                 // Need at least 2 bytes to read the payload length field.
                 if (pos + 1 >= chunk.length) break;
@@ -281,6 +309,7 @@ function installEyeRSVPatcher(ws) {
 
 // Handle WebSocket connection routing
 server.on('upgrade', (request, socket, head) => {
+    socket.setNoDelay(true); // Bypass Nagle's algorithm packet batching delays
     const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;
 
     if (pathname === '/robot-video') {
@@ -376,6 +405,10 @@ function handleMuscleConnection(ws) {
 }
 
 function handleVideoClientConnection(ws) {
+    const socket = ws._socket;
+    if (socket) {
+        socket.setNoDelay(true); // Explicitly kill Nagle's algorithm on dashboard video socket
+    }
     videoClientSockets.add(ws);
     videoClientState.set(ws, { latestFrame: null, sending: false, lastSentAt: 0 });
     console.log(`Video client connected. Total video clients: ${videoClientSockets.size}`);
@@ -394,6 +427,10 @@ function handleVideoClientConnection(ws) {
 
 // Control lane handler (Web browsers)
 function handleControlClientConnection(ws) {
+    const socket = ws._socket;
+    if (socket) {
+        socket.setNoDelay(true); // Explicitly kill Nagle's algorithm on dashboard control socket
+    }
     controlClientSockets.add(ws);
     console.log(`Control client connected. Total control clients: ${controlClientSockets.size}`);
 
@@ -418,7 +455,7 @@ function handleControlClientConnection(ws) {
         }
         
         // Forward command to The Muscle if connected
-        if (muscleSocket && muscleSocket.readyState === WebSocket.OPEN) {
+        if (muscleSocket && (muscleSocket.readyState === 1 || muscleSocket.readyState === WebSocket.OPEN)) {
             let transit = '';
             if (Number.isFinite(parsedControl.clientTs)) {
                 transit = ` transit=${Date.now() - parsedControl.clientTs}ms`;

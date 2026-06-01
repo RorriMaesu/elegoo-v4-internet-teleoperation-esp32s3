@@ -114,7 +114,8 @@
         }
 
         .video-container img,
-        .video-container canvas {
+        .video-container canvas,
+        .video-container video {
             width: 100%;
             height: 100%;
             object-fit: cover;
@@ -300,6 +301,170 @@
             font-size: 0.8rem;
             text-align: center;
         }
+
+        /* ========================================================================= */
+        /* 📱 RESPONSIVE DRONE-HUD MOBILE LAYOUT SYSTEM                              */
+        /* ========================================================================= */
+        @media (max-width: 900px) {
+            body {
+                overflow: hidden;
+                height: 100vh;
+                height: 100dvh;
+                padding: 0;
+                margin: 0;
+                position: relative;
+                display: block;
+            }
+
+            header {
+                display: none !important;
+            }
+
+            footer {
+                display: none !important;
+            }
+
+            .main-container {
+                display: block;
+                position: relative;
+                width: 100vw;
+                height: 100vh;
+                height: 100dvh;
+                max-width: 100vw;
+                padding: 0;
+                margin: 0;
+            }
+
+            /* Panel 1: Video & HUD Overlay */
+            .main-container > .glass-panel:nth-child(1) {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                padding: 0;
+                border: none;
+                border-radius: 0;
+                background: #000;
+                z-index: 1;
+                box-shadow: none;
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+            }
+
+            .video-container {
+                width: 100% !important;
+                height: 100% !important;
+                aspect-ratio: auto !important;
+                border-radius: 0 !important;
+                border: none !important;
+                position: absolute;
+                top: 0;
+                left: 0;
+            }
+
+            .video-container canvas,
+            .video-container video {
+                width: 100% !important;
+                height: 100% !important;
+                object-fit: contain !important;
+                border-radius: 0 !important;
+            }
+
+            /* Sleek Telemetry HUD Bar (Horizontal at Top) */
+            .main-container > .glass-panel:nth-child(1) .telemetry-grid {
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                right: 10px;
+                display: grid !important;
+                grid-template-columns: repeat(5, 1fr) !important;
+                gap: 8px !important;
+                margin-top: 0 !important;
+                z-index: 10;
+                width: calc(100% - 20px) !important;
+            }
+
+            .telemetry-item {
+                padding: 6px 4px !important;
+                background: rgba(7, 5, 14, 0.7) !important;
+                backdrop-filter: blur(10px) !important;
+                -webkit-backdrop-filter: blur(10px) !important;
+                border: 1px solid rgba(255, 255, 255, 0.08) !important;
+                border-radius: 12px !important;
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                justify-content: center !important;
+                text-align: center !important;
+            }
+
+            .tel-label {
+                font-size: 0.55rem !important;
+                margin-bottom: 2px !important;
+                letter-spacing: 0.5px !important;
+            }
+
+            .tel-value {
+                font-size: 0.75rem !important;
+                font-weight: 700 !important;
+            }
+
+            .video-overlay {
+                top: 75px !important;
+                left: 10px !important;
+                background: rgba(7, 5, 14, 0.7) !important;
+                backdrop-filter: blur(10px) !important;
+                -webkit-backdrop-filter: blur(10px) !important;
+                z-index: 10;
+            }
+
+            /* Panel 2: Floating Gamepad HUD */
+            .main-container > .glass-panel:nth-child(2) {
+                position: absolute;
+                bottom: 20px;
+                right: 20px;
+                width: auto !important;
+                height: auto !important;
+                background: transparent !important;
+                border: none !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                z-index: 20;
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+            }
+
+            .main-container > .glass-panel:nth-child(2) h3 {
+                display: none !important;
+            }
+
+            .main-container > .glass-panel:nth-child(2) .key-legend {
+                display: none !important;
+            }
+
+            /* Virtual Gamepad Buttons */
+            .dpad-container {
+                grid-template-columns: repeat(3, 70px) !important;
+                grid-template-rows: repeat(3, 70px) !important;
+                gap: 12px !important;
+                margin: 0 !important;
+            }
+
+            .btn-ctrl {
+                border-radius: 20px !important;
+                background: rgba(7, 5, 14, 0.7) !important;
+                border: 1px solid rgba(255, 255, 255, 0.1) !important;
+                backdrop-filter: blur(10px) !important;
+                -webkit-backdrop-filter: blur(10px) !important;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4) !important;
+            }
+
+            .btn-stop {
+                background: rgba(255, 0, 127, 0.25) !important;
+                border-color: rgba(255, 0, 127, 0.4) !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -313,7 +478,7 @@
         <!-- Live Video Feed Panel -->
         <div class="glass-panel">
             <div class="video-container">
-                <canvas id="cameraStream"></canvas>
+                <video id="cameraStream" autoplay playsinline muted></video>
                 <div class="video-overlay">
                     <div id="live-dot" class="live-dot"></div>
                     <span id="stream-label">STREAM OFFLINE</span>
@@ -338,8 +503,8 @@
                     <span id="latency" class="tel-value">-- ms</span>
                 </div>
                 <div class="telemetry-item">
-                    <span class="tel-label">Frame Age @ Render</span>
-                    <span id="frame-age" class="tel-value">-- ms</span>
+                    <span class="tel-label">Stream Frame Rate</span>
+                    <span id="frame-age" class="tel-value">-- FPS</span>
                 </div>
             </div>
         </div>
@@ -394,28 +559,23 @@
 
     <script>
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const videoWsUrl = `${protocol}//${window.location.host}/video-stream`;
         const controlWsUrl = `${protocol}//${window.location.host}/control-stream`;
 
-        let videoWs = null;
+        let pc = null;
+        let statsInterval = null;
         let controlWs = null;
-        let isConnectingVideo = false;
         let isConnectingControl = false;
         let activeDirection = null;
         let controlSequence = 0;
         let pingSequence = 0;
         let controlPingTimer = null;
         const pendingPings = new Map();
-        const FRAME_PACKET_MAGIC = 0x45594531; // 'EYE1'
-        const FRAME_PACKET_HEADER_BYTES = 24;
 
         const statusEl = document.getElementById('sys-status');
         const robotStatusEl = document.getElementById('robot-status');
         const lastCmdEl = document.getElementById('last-cmd');
         const latencyEl = document.getElementById('latency');
         const frameAgeEl = document.getElementById('frame-age');
-        const cameraStream = document.getElementById('cameraStream');
-        const cameraCtx = cameraStream.getContext('2d');
         const liveDot = document.getElementById('live-dot');
         const streamLabel = document.getElementById('stream-label');
         const stopButton = document.getElementById('btn-S');
@@ -429,52 +589,14 @@
 
         const activeDirectionKeys = [];
 
-        function parseFramePacket(arrayBuffer) {
-            if (!(arrayBuffer instanceof ArrayBuffer)) {
-                return null;
-            }
-
-            if (arrayBuffer.byteLength < FRAME_PACKET_HEADER_BYTES) {
-                return {
-                    frameBlob: new Blob([arrayBuffer], { type: 'image/jpeg' }),
-                    sourceTsMs: null,
-                    relaySentTsMs: null
-                };
-            }
-
-            const view = new DataView(arrayBuffer);
-            const magic = view.getUint32(0, false);
-            if (magic !== FRAME_PACKET_MAGIC) {
-                return {
-                    frameBlob: new Blob([arrayBuffer], { type: 'image/jpeg' }),
-                    sourceTsMs: null,
-                    relaySentTsMs: null
-                };
-            }
-
-            const sourceTsMs = Number(view.getBigInt64(4, false));
-            const relaySentTsMs = Number(view.getBigInt64(12, false));
-            const jpegLength = view.getUint32(20, false);
-            const expectedLength = FRAME_PACKET_HEADER_BYTES + jpegLength;
-            if (expectedLength > arrayBuffer.byteLength || jpegLength <= 0) {
-                return null;
-            }
-
-            return {
-                frameBlob: new Blob([arrayBuffer.slice(FRAME_PACKET_HEADER_BYTES, expectedLength)], { type: 'image/jpeg' }),
-                sourceTsMs,
-                relaySentTsMs
-            };
-        }
-
         function updateSystemStatus() {
-            const videoOpen = videoWs && videoWs.readyState === WebSocket.OPEN;
+            const webrtcConnected = pc && pc.connectionState === 'connected';
             const controlOpen = controlWs && controlWs.readyState === WebSocket.OPEN;
 
-            if (videoOpen && controlOpen) {
-                statusEl.innerText = 'Connected (Dual Lane)';
+            if (webrtcConnected && controlOpen) {
+                statusEl.innerText = 'Connected (WebRTC + WS)';
                 statusEl.className = 'tel-value status-online';
-            } else if (videoOpen || controlOpen) {
+            } else if (webrtcConnected || controlOpen) {
                 statusEl.innerText = 'Partial Link';
                 statusEl.className = 'tel-value';
             } else {
@@ -483,86 +605,145 @@
             }
         }
 
-        function connectVideoLane() {
-            if (isConnectingVideo || (videoWs && videoWs.readyState === WebSocket.OPEN)) {
-                return;
+        async function connectWebRTCVideo() {
+            if (pc) {
+                pc.close();
+                pc = null;
             }
-            isConnectingVideo = true;
+            if (statsInterval) {
+                clearInterval(statsInterval);
+                statsInterval = null;
+            }
 
-            console.log(`Connecting video lane: ${videoWsUrl}`);
-            videoWs = new WebSocket(videoWsUrl);
-            videoWs.binaryType = 'arraybuffer';
+            console.log("Initiating WebRTC WHEP connection to /api/whep...");
+            liveDot.classList.remove('active');
+            streamLabel.innerText = "STREAM CONNECTING...";
 
-            videoWs.onopen = () => {
-                isConnectingVideo = false;
-                updateSystemStatus();
-                checkRobotStatus();
-            };
+            pc = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
 
-            let frameDecoding = false;
-            videoWs.onmessage = (event) => {
-                if (!(event.data instanceof ArrayBuffer)) {
-                    return;
-                }
-
-                // Drop incoming frame if a decode is already in progress — prevents browser queue buildup.
-                if (frameDecoding) {
-                    return;
-                }
-
-                const packet = parseFramePacket(event.data);
-                if (!packet || !packet.frameBlob) {
-                    return;
-                }
-
-                frameDecoding = true;
-                const decodeStart = performance.now();
-                const receiveTsMs = Date.now();
-                createImageBitmap(packet.frameBlob).then((bitmap) => {
-                    cameraStream.width = bitmap.width;
-                    cameraStream.height = bitmap.height;
-                    cameraCtx.drawImage(bitmap, 0, 0);
-                    bitmap.close();
-
-                    const renderTsMs = Date.now();
-                    if (Number.isFinite(packet.sourceTsMs)) {
-                        const frameAgeAtRenderMs = Math.max(0, renderTsMs - packet.sourceTsMs);
-                        frameAgeEl.innerText = `${frameAgeAtRenderMs} ms`;
-                    }
-
-                    if (Number.isFinite(packet.relaySentTsMs)) {
-                        const relayToBrowserMs = Math.max(0, receiveTsMs - packet.relaySentTsMs);
-                        streamLabel.innerText = `LIVE VIDEO FEED (${relayToBrowserMs}ms lane)`;
-                    } else {
-                        streamLabel.innerText = 'LIVE VIDEO FEED';
-                    }
-
-                    const decodeMs = Math.round(performance.now() - decodeStart);
-                    if (decodeMs > 40) {
-                        console.debug(`Frame decode time high: ${decodeMs}ms`);
-                    }
-
-                    frameDecoding = false;
-                }).catch(() => { frameDecoding = false; });
-
+            // Handle incoming track
+            pc.ontrack = (event) => {
+                console.log("WebRTC video track received!");
+                const videoTag = document.getElementById('cameraStream');
+                videoTag.srcObject = event.streams[0];
+                
                 liveDot.classList.add('active');
-                robotStatusEl.innerText = 'Online';
-                robotStatusEl.className = 'tel-value status-online';
-            };
-
-            videoWs.onclose = () => {
-                isConnectingVideo = false;
-                liveDot.classList.remove('active');
-                streamLabel.innerText = 'STREAM OFFLINE';
-                frameAgeEl.innerText = '-- ms';
+                streamLabel.innerText = "LIVE WebRTC VIDEO";
+                robotStatusEl.innerText = "Online";
+                robotStatusEl.className = "tel-value status-online";
                 updateSystemStatus();
-                setTimeout(connectVideoLane, 2000);
             };
 
-            videoWs.onerror = (err) => {
-                console.error('Video lane error:', err);
-                videoWs.close();
+            // Setup receive-only transceivers
+            pc.addTransceiver('video', { direction: 'recvonly' });
+
+            pc.onconnectionstatechange = () => {
+                console.log(`WebRTC Connection State: ${pc.connectionState}`);
+                if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+                    console.warn("WebRTC connection lost. Reconnecting in 2 seconds...");
+                    cleanupWebRTC();
+                    setTimeout(connectWebRTCVideo, 2000);
+                }
             };
+
+            try {
+                // Create SDP offer
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+
+                // Send local SDP to WHEP proxy endpoint
+                const response = await fetch('/api/whep', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/sdp'
+                    },
+                    body: offer.sdp
+                });
+
+                if (!response.ok) {
+                    throw new Error(`WHEP server returned status: ${response.status}`);
+                }
+
+                const answerSdp = await response.text();
+
+                // Apply remote description
+                await pc.setRemoteDescription(new RTCSessionDescription({
+                    type: 'answer',
+                    sdp: answerSdp
+                }));
+
+                console.log("WebRTC WHEP negotiation complete. Awaiting tracks...");
+                updateSystemStatus();
+                startStatsMonitoring();
+            } catch (err) {
+                console.error("Failed to establish WebRTC WHEP connection:", err);
+                streamLabel.innerText = "STREAM ERROR";
+                cleanupWebRTC();
+                setTimeout(connectWebRTCVideo, 5000); // retry after 5 seconds
+            }
+        }
+
+        function cleanupWebRTC() {
+            if (pc) {
+                pc.close();
+                pc = null;
+            }
+            if (statsInterval) {
+                clearInterval(statsInterval);
+                statsInterval = null;
+            }
+            const videoTag = document.getElementById('cameraStream');
+            videoTag.srcObject = null;
+            liveDot.classList.remove('active');
+            streamLabel.innerText = "STREAM OFFLINE";
+            latencyEl.innerText = "-- ms";
+            frameAgeEl.innerText = "-- FPS";
+            updateSystemStatus();
+        }
+
+        let lastDecodedFrames = 0;
+        let lastStatsTime = 0;
+
+        function startStatsMonitoring() {
+            lastDecodedFrames = 0;
+            lastStatsTime = performance.now();
+
+            statsInterval = setInterval(async () => {
+                if (!pc || pc.connectionState !== 'connected') return;
+
+                try {
+                    const stats = await pc.getStats();
+                    stats.forEach((report) => {
+                        if (report.type === 'inbound-rtp' && report.kind === 'video') {
+                            const now = performance.now();
+                            const decodedFrames = report.framesDecoded || 0;
+                            const timeDiffSec = (now - lastStatsTime) / 1000;
+
+                            if (lastDecodedFrames > 0 && timeDiffSec > 0) {
+                                const fps = Math.round((decodedFrames - lastDecodedFrames) / timeDiffSec);
+                                frameAgeEl.innerText = `${fps} FPS`;
+                            } else {
+                                frameAgeEl.innerText = `-- FPS`;
+                            }
+
+                            lastDecodedFrames = decodedFrames;
+                            lastStatsTime = now;
+
+                            // Display network jitter as link latency metrics
+                            if (typeof report.jitter === 'number') {
+                                const jitterMs = Math.round(report.jitter * 1000);
+                                latencyEl.innerText = `${jitterMs} ms`;
+                            } else {
+                                latencyEl.innerText = `0 ms`;
+                            }
+                        }
+                    });
+                } catch (err) {
+                    console.warn("Failed to get WebRTC stats:", err);
+                }
+            }, 1000);
         }
 
         function connectControlLane() {
@@ -728,16 +909,12 @@
             fetch('/status')
                 .then(res => res.json())
                 .then(data => {
-                    if (data.eyeConnected && data.muscleConnected) {
+                    if (data.muscleConnected) {
                         robotStatusEl.innerText = 'Online';
                         robotStatusEl.className = 'tel-value status-online';
                     } else {
                         robotStatusEl.innerText = 'Offline';
                         robotStatusEl.className = 'tel-value status-offline';
-                        liveDot.classList.remove('active');
-                        streamLabel.innerText = 'STREAM OFFLINE';
-                        latencyEl.innerText = '-- ms';
-                        frameAgeEl.innerText = '-- ms';
                     }
                 })
                 .catch(() => console.warn('Failed to check robot status'));
@@ -834,7 +1011,7 @@
         });
 
         setInterval(checkRobotStatus, 4000);
-        connectVideoLane();
+        connectWebRTCVideo();
         connectControlLane();
         updateSystemStatus();
     </script>

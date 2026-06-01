@@ -1,0 +1,29 @@
+# ================================================================
+#  go2rtc Configuration — go2rtc.yaml
+# ================================================================
+#  Role   : Ingests the robot's local UDP RTSP stream and exposes
+#           it as a hardware-accelerated WebRTC stream.
+# ================================================================
+
+# Configure the local HTTP input stream from the ESP32-S3 Eye and transcode to H264 for WebRTC
+streams:
+  robot_eye:
+    - ffmpeg:http://192.168.1.214:80/stream#video=h264
+
+# Specify the local ffmpeg path
+ffmpeg:
+  bin: "C:/Users/Tesla/.gemini/antigravity/scratch/ffmpeg.exe"
+
+# WebRTC and WHEP signaling configuration
+webrtc:
+  # Listen port for local WebRTC candidates (STUN/ICE handles WAN)
+  listen: ":8555"
+
+# Configure HTTP API Server (default go2rtc port is 1984)
+api:
+  listen: ":1984"
+
+# Logging configuration
+log:
+  level: info
+  format: text

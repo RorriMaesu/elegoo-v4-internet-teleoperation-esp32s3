@@ -34,7 +34,7 @@ const char* ssid     = "MySpectrumWiFi47-2G";
 const char* password = "finishoasis957";
 
 // ─── Relay server ────────────────────────────────────────────────────────────
-const char* ws_host = "192.168.1.213";
+const char* ws_host = "192.168.1.85";
 const int   ws_port = 3000;
 
 // ─── Status LED ──────────────────────────────────────────────────────────────
