@@ -6,10 +6,12 @@
 # ================================================================
 
 # Configure the local HTTP input stream from the ESP32-S3 Eye and transcode to H264 for WebRTC
+# Single-connection sharing: robot_eye_src is cached, preventing the ESP32 from choking under dual connections.
 streams:
+  robot_eye_src: http://192.168.1.214:80/stream
   robot_eye:
-    - ffmpeg:http://192.168.1.214:80/stream#video=h264
-  robot_eye_mjpeg: http://192.168.1.214:80/stream
+    - ffmpeg:http://127.0.0.1:1984/api/stream.mjpeg?src=robot_eye_src#video=h264
+  robot_eye_mjpeg: robot_eye_src
 
 # Specify the local ffmpeg path and override H264 preset for mobile browser compatibility
 ffmpeg:
@@ -17,9 +19,11 @@ ffmpeg:
   h264: "-codec:v libx264 -profile:v baseline -level:v 3.0 -pix_fmt:v yuv420p -bf 0 -g 30 -preset:v superfast -tune:v zerolatency"
 
 # WebRTC and WHEP signaling configuration
+# Explicit STUN servers are absolutely mandatory for WAN/cellular traversal behind NATs
 webrtc:
   listen: ":8555"
-  ice_servers: []
+  ice_servers:
+    - urls: [ "stun:stun.l.google.com:19302" ]
 
 # Configure HTTP API Server (default go2rtc port is 1984)
 api:
