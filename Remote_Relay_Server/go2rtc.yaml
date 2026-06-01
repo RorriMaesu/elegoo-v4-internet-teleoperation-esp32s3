@@ -10,9 +10,10 @@ streams:
   robot_eye:
     - ffmpeg:http://192.168.1.214:80/stream#video=h264
 
-# Specify the local ffmpeg path
+# Specify the local ffmpeg path and override H264 preset for mobile browser compatibility
 ffmpeg:
   bin: "C:/Users/Tesla/.gemini/antigravity/scratch/ffmpeg.exe"
+  h264: "-codec:v libx264 -profile:v baseline -level:v 3.0 -pix_fmt:v yuv420p -bf 0 -g 30 -preset:v superfast -tune:v zerolatency"
 
 # WebRTC and WHEP signaling configuration
 webrtc:
