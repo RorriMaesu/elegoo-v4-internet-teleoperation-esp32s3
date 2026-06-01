@@ -575,7 +575,8 @@
 
         let webrtcTimeout = null;
         let isFallbackActive = false;
-        let fallbackRefreshInterval = null;
+        let videoWs = null;
+        let objectUrl = null;
 
         const statusEl = document.getElementById('sys-status');
         const robotStatusEl = document.getElementById('robot-status');
@@ -634,7 +635,7 @@
                 webrtcTimeout = null;
             }
 
-            console.warn("WebRTC UDP connection blocked or timed out. Falling back to HTTP MJPEG stream...");
+            console.warn("WebRTC UDP connection blocked or timed out. Falling back to WebSocket JPEG stream...");
 
             // Stop WebRTC PeerConnection silently
             if (pc) {
@@ -655,29 +656,97 @@
 
             if (fallbackImg) {
                 fallbackImg.style.display = 'block';
-                fallbackImg.src = `/api/stream.mjpeg?t=${Date.now()}`;
-
-                // Periodically reset the image tag to force browser to dump local TCP buffer backlog
-                if (fallbackRefreshInterval) {
-                    clearInterval(fallbackRefreshInterval);
-                }
-                fallbackRefreshInterval = setInterval(() => {
-                    if (isFallbackActive && fallbackImg) {
-                        fallbackImg.src = `/api/stream.mjpeg?t=${Date.now()}`;
-                    }
-                }, 8000); // clear accumulated latency every 8 seconds
             }
 
             // Update Telemetry Indicators
             liveDot.classList.add('active');
-            streamLabel.innerText = "LIVE TCP MJPEG (FALLBACK)";
+            streamLabel.innerText = "LIVE WS JPEG (FALLBACK)";
             
-            frameAgeEl.innerText = "~30 FPS";
-            latencyEl.innerText = "TCP Relay";
+            frameAgeEl.innerText = "~35 FPS";
+            latencyEl.innerText = "WS Tunnel";
             
             robotStatusEl.innerText = "Online";
             robotStatusEl.className = "tel-value status-online";
             updateSystemStatus();
+
+            // Connect fallback WebSocket video stream
+            connectWebSocketVideo();
+        }
+
+        function connectWebSocketVideo() {
+            cleanupWebSocketVideo();
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/video-stream`;
+            console.log(`Connecting fallback WebSocket video lane: ${wsUrl}`);
+            
+            videoWs = new WebSocket(wsUrl);
+            videoWs.binaryType = 'arraybuffer';
+
+            let lastFrameTime = performance.now();
+
+            videoWs.onmessage = (event) => {
+                if (!isFallbackActive) {
+                    cleanupWebSocketVideo();
+                    return;
+                }
+
+                const buffer = event.data;
+                if (buffer.byteLength < 24) return;
+
+                const view = new DataView(buffer);
+                const magic = view.getUint32(0);
+                if (magic !== 0x45594531) return; // 'EYE1'
+
+                const sourceTsMs = Number(view.getBigInt64(4));
+                const payloadLen = view.getUint32(20);
+
+                const jpegData = new Uint8Array(buffer, 24, payloadLen);
+                const blob = new Blob([jpegData], { type: 'image/jpeg' });
+                
+                const oldUrl = objectUrl;
+                objectUrl = URL.createObjectURL(blob);
+                
+                const fallbackImg = document.getElementById('mjpegFallback');
+                if (fallbackImg) {
+                    fallbackImg.src = objectUrl;
+                }
+
+                if (oldUrl) {
+                    URL.revokeObjectURL(oldUrl);
+                }
+
+                // Update FPS & Latency
+                const now = performance.now();
+                const fps = Math.round(1000 / (now - lastFrameTime));
+                lastFrameTime = now;
+                frameAgeEl.innerText = `${fps} FPS`;
+
+                const lat = Date.now() - sourceTsMs;
+                latencyEl.innerText = `${lat} ms`;
+            };
+
+            videoWs.onclose = () => {
+                if (isFallbackActive) {
+                    console.warn("Fallback WebSocket video stream closed. Reconnecting in 2 seconds...");
+                    setTimeout(connectWebSocketVideo, 2000);
+                }
+            };
+
+            videoWs.onerror = (err) => {
+                console.error("Fallback WebSocket video stream error:", err);
+            };
+        }
+
+        function cleanupWebSocketVideo() {
+            if (videoWs) {
+                videoWs.close();
+                videoWs = null;
+            }
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+                objectUrl = null;
+            }
         }
 
         async function connectWebRTCVideo() {
@@ -685,10 +754,7 @@
                 clearTimeout(webrtcTimeout);
                 webrtcTimeout = null;
             }
-            if (fallbackRefreshInterval) {
-                clearInterval(fallbackRefreshInterval);
-                fallbackRefreshInterval = null;
-            }
+            cleanupWebSocketVideo();
 
             if (pc) {
                 pc.close();
@@ -808,10 +874,7 @@
                 clearTimeout(webrtcTimeout);
                 webrtcTimeout = null;
             }
-            if (fallbackRefreshInterval) {
-                clearInterval(fallbackRefreshInterval);
-                fallbackRefreshInterval = null;
-            }
+            cleanupWebSocketVideo();
             isFallbackActive = false;
 
             if (pc) {

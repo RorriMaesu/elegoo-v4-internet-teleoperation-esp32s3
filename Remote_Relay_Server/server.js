@@ -523,6 +523,75 @@ function handleControlClientConnection(ws) {
     });
 }
 
+let mjpegConsumerActive = false;
+let mjpegRequest = null;
+
+function startMjpegConsumer() {
+    if (mjpegConsumerActive) return;
+    mjpegConsumerActive = true;
+
+    console.log('[MJPEG Consumer] Starting local stream acquisition from go2rtc...');
+
+    let buffer = Buffer.alloc(0);
+
+    mjpegRequest = http.request({
+        host: '127.0.0.1',
+        port: 1984,
+        path: '/api/stream.mjpeg?src=robot_eye_mjpeg',
+        method: 'GET'
+    }, (res) => {
+        res.on('data', (chunk) => {
+            buffer = Buffer.concat([buffer, chunk]);
+
+            while (true) {
+                const soiIdx = buffer.indexOf(Buffer.from([0xFF, 0xD8]));
+                if (soiIdx === -1) {
+                    if (buffer.length > 64 * 1024) {
+                        buffer = Buffer.alloc(0);
+                    }
+                    break;
+                }
+
+                if (soiIdx > 0) {
+                    buffer = buffer.slice(soiIdx);
+                    continue;
+                }
+
+                const eoiIdx = buffer.indexOf(Buffer.from([0xFF, 0xD9]), 2);
+                if (eoiIdx === -1) {
+                    break;
+                }
+
+                const frameLen = eoiIdx + 2;
+                const jpegFrame = buffer.slice(0, frameLen);
+                buffer = buffer.slice(frameLen);
+
+                // Fan out to all WebSocket video clients
+                const stampedFrame = { data: jpegFrame, sourceTsMs: Date.now(), receivedAt: Date.now() };
+                videoClientSockets.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        pushLatestFrameToClient(client, stampedFrame);
+                    }
+                });
+            }
+        });
+
+        res.on('end', () => {
+            console.log('[MJPEG Consumer] Local stream ended. Reconnecting in 2 seconds...');
+            mjpegConsumerActive = false;
+            setTimeout(startMjpegConsumer, 2000);
+        });
+    });
+
+    mjpegRequest.on('error', (err) => {
+        console.warn('[MJPEG Consumer] Failed to connect to go2rtc API. Retrying in 4 seconds...');
+        mjpegConsumerActive = false;
+        setTimeout(startMjpegConsumer, 4000);
+    });
+
+    mjpegRequest.end();
+}
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`=======================================================`);
@@ -535,4 +604,7 @@ server.listen(PORT, () => {
     console.log(`  Status       : http://localhost:${PORT}/status`);
     console.log(`  Dashboard    : http://localhost:${PORT}`);
     console.log(`=======================================================`);
+
+    // Start local acquisition stream
+    startMjpegConsumer();
 });
