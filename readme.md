@@ -1,27 +1,33 @@
-# elegoo-v4-internet-teleoperation-esp32s3
+# 🏎️ Elegoo V4 Internet Teleoperation (ESP32-S3)
 
-### Turn your local Wi-Fi toy into an internet-accessible rover. 
+<p align="center">
+  <strong>Turn your local Wi-Fi toy into an ultra-low-latency, internet-accessible teleoperated WAN rover.</strong>
+</p>
 
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/rorrimaesu)
-
-This repository contains an open-source, dual-board teleoperation framework built to eliminate the classic voltage sag and network lag bottlenecks found in standard commercial robot car kits.
+<p align="center">
+  <a href="https://github.com/RorriMaesu/elegoo-v4-internet-teleoperation-esp32s3/stargazers"><img src="https://img.shields.io/github/stars/RorriMaesu/elegoo-v4-internet-teleoperation-esp32s3?style=for-the-badge&color=blue" alt="Stars"></a>
+  <a href="https://github.com/RorriMaesu/elegoo-v4-internet-teleoperation-esp32s3/blob/main/LICENSE"><img src="https://img.shields.io/github/license/RorriMaesu/elegoo-v4-internet-teleoperation-esp32s3?style=for-the-badge&color=green" alt="License"></a>
+  <img src="https://img.shields.io/badge/Platform-ESP32--S3-orange?style=for-the-badge&logo=espressif" alt="ESP32-S3 Platform">
+  <img src="https://img.shields.io/badge/Stack-Node.js%20%7C%20C%2B%2B%20%7C%20HTML5-blueviolet?style=for-the-badge" alt="Tech Stack">
+  <a href="https://www.buymeacoffee.com/rorrimaesu"><img src="https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me A Coffee"></a>
+</p>
 
 ---
 
 ## 📐 Systems Engineering & Operational Philosophy
 
-Standard commercial or hobby robot configurations route heavy, high-bandwidth real-time video streams and time-critical directional control strings through a singular microchip over a unified power rail and shared radio frequency hardware. In long-distance wide-area network (WAN) internet teleoperation, this design pattern creates two catastrophic points of failure:
+Most hobby robot cars route high-bandwidth video streams and real-time directional controls through a singular microcontroller, over a shared power rail and radio. In long-distance wide-area network (WAN) teleoperation, this creates two fatal bottlenecks:
 
-1. **Inductive Voltage Sag:** High transient current spikes drawn by DC electric motors under physical load (e.g., accelerating from a dead stop, navigating carpet) drop the shared logic voltage rail below acceptable limits. This induces immediate Wi-Fi transceiver brownouts, packet fragmentation, or unexpected microcontroller resets.
-2. **Network Queue Trapping:** High-volume binary JPEG video frames choke the chip's internal RF buffer queue. Time-sensitive, lightweight text-based steering strings become trapped behind image data packets, resulting in severe "rubber-band" control lag or catastrophic control loss.
+1. **Inductive Voltage Sag:** DC motors drawing high transient currents under physical load drop the logic voltage rail, triggering immediate Wi-Fi transceivers brownouts, packet fragmentation, or hardware brownouts.
+2. **Network Queue Trapping:** High-volume binary JPEG video frames fill the chip's internal RF buffer queue. Time-sensitive directional steering strings get trapped behind image packets, causing severe "rubber-band" control lag.
 
-This system fully mitigates these failure paths by implementing **True Physical Power-Domain and Processing-Domain Isolation**. The entire platform load is decoupled across two independent ESP32-S3 modules and two independent battery packs operating on a single unified mechanical chassis.
+This framework mitigates these failures via **True Physical Power-Domain and Processing-Domain Isolation**. The workload is completely decoupled across two independent **ESP32-S3** microcontrollers running on separate battery packs over a single unified mechanical chassis.
 
 ---
 
 ## 🗂️ Production Workspace Layout
 
-The active project space has been completely cleaned of historical monolithic reference builds, obsolete `.ino` scratchpads, and duplicate configuration scripts. The production tree is structured as follows:
+The active production workspace is structured for clean modular deployment:
 
 ```text
 M:\Robot Projects\ElegooRobot\
@@ -41,27 +47,22 @@ M:\Robot Projects\ElegooRobot\
 
 ## ⚡ Hardware Subsystem Specifications
 
-### 👁️ System 1: THE EYE (Isolated Vision Tier Only)
-* **Silicon Platform:** ESP32-S3 Development Module integrated with an **OV3660 Camera Sensor**.
-* **Base Plate Configuration:** Mounted onto a secondary/new Arduino UNO motherboard. This board acts strictly as a mechanical mounting dock and a dedicated, hardware-isolated 5V regulated power rail.
-* **Power Source:** Energized solely by **Battery Pack 2**.
-* **Inter-Chip Interfacing:** Completely disconnected from the vehicle's locomotion lines. Hardware `Serial2` jumpers are unpopulated.
-* **Firmware Protocol:** Links directly to `ws://[Server_IP]:3000/robot-video`. Captures video frames at fixed QVGA resolution, injects custom millisecond transaction tokens into the binary headers, and outputs raw binary packets. 
-* **RF Optimization:** Invokes `WiFi.setSleep(false);` and explicitly forces maximum wireless broadcast boundaries using `WiFi.setTxPower(WIFI_POWER_19_5dBm);` immediately following network handshake. Frame pacing is throttled via non-blocking clock math capped at a strict ~22 FPS (~45ms interval).
-
-### 🏎️ System 2: THE MUSCLE (Isolated Drivetrain Tier Only)
-* **Silicon Platform:** Secondary ESP32-S3 Development Module carrying an uninitialized/unused OV2640 camera chip.
-* **Base Plate Configuration:** Mounted onto the vehicle's primary Arduino UNO motherboard and custom L298N/L293D motor shield driver assembly.
-* **Power Source:** Energized solely by **Battery Pack 1** (fully insulating the computing tier from motor noise and inductive current drops).
-* **Inter-Chip Interfacing:** Onboard physical `S1` toggle switch is permanently locked to the **CAM** position, hard-bridging the ESP32-S3's hardware UART serial pins directly down to the Arduino UNO motor driver (Serial2 Pin Mapping: `RX=3`, `TX=40`).
-* **Firmware Configuration:** Links directly to `ws://[Server_IP]:3000/robot-control`. The standard `esp_camera_init()` initialization sequence is completely commented out/omitted in source code. The camera sensor remains unpowered, cutting background heat and power draws.
-* **Execution Logic:** Runs a high-frequency asynchronous text socket loop. When it grabs stateful steering tokens (e.g., `drive:forward,start`), it converts them instantly into single-character legacy directional tokens (`F`, `B`, `L`, `R`, `S`) and dumps them via `Serial2.write()` directly down to the motor board for immediate wheel execution.
+| Specification | 👁️ THE EYE (Isolated Vision Tier) | 🏎️ THE MUSCLE (Isolated Drivetrain Tier) |
+| :--- | :--- | :--- |
+| **Silicon Platform** | ESP32-S3 Development Module | ESP32-S3 Development Module |
+| **Camera Sensor** | **OV3660 Camera Sensor** (Active) | OV2640 (Fully Uninitialized & Disabled) |
+| **Power Source** | Dedicated **Battery Pack 2** | Dedicated **Battery Pack 1** (Isolates motor noise) |
+| **Base Configuration** | Mounted on secondary UNO mother board (5V mounting rail) | Mounted on primary Elegoo V4 UNO & L298N/L293D shield |
+| **Pin Mapping (UART)** | Disconnected / Hardware `Serial2` unpopulated | Onboard CAM switch active; UART RX=3, TX=40 to UNO board |
+| **Connection Endpoint** | `ws://[Server_IP]:3000/robot-video` | `ws://[Server_IP]:3000/robot-control` |
+| **RF / Power Settings** | `WiFi.setSleep(false);` & `WiFi.setTxPower(WIFI_POWER_19_5dBm);` | Camera initialization code omitted to optimize thermal draw |
+| **Frame Rates** | Non-blocking clock throttled to ~22 FPS (~45ms interval) | High-frequency asynchronous event loop |
 
 ---
 
-## 🔄 Network Routing & Core Backend Customizations
+## 🔄 Network Routing Architecture
 
-The Node.js relay server acts as an internet traffic cop running on **Port 3000** (utilizing `ws` library version 8.21.0), communicating through a secure Cloudflare Quick Tunnel wrapper.
+The Node.js relay server acts as an internet traffic cop running on **Port 3000**, communicating through a secure Cloudflare Quick Tunnel wrapper.
 
 ```text
                ┌─── [ Web Dashboard UI ] ───┐
@@ -76,35 +77,57 @@ The Node.js relay server acts as an internet traffic cop running on **Port 3000*
 [System 1: OV3660 "The Eye"]                 [System 2: OV2640 "The Muscle"]
 ```
 
-### 🛑 CRITICAL PROGRAMMING BOUNDARIES: DO NOT REMOVE OR REWRITE THESE FIXES
+---
+
+## 🛑 Critical Programming Boundaries (Must Preserve)
 
 The following server-side and client-side custom code blocks are mission-critical. They resolve underlying hardware and library protocol anomalies and must be preserved during any subsequent file refactors:
 
-### 1. Server-Side Raw TCP Socket Interceptor (`installEyeRSVPatcher`)
-Under high-volume image transmission loops, the ESP32 third-party WebSocket library occasionally sets reserved protocol header bits (specifically RSV2 and RSV3) inside individual frame packages. Standard RFC6455 Node.js WebSocket libraries (such as `ws` 8.x) treat these rogue bits as a severe framing violation and immediately terminate the socket connection with an uncaught exception crash log (`Invalid WebSocket frame: RSV2 and RSV3 must be clear`).
-* **The Solution Live in `server.js`:** Rather than forcing risky firmware-level library modifications on the chip, a custom middleware hook (`installEyeRSVPatcher`) intercepts raw data buffers coming out of the Eye's underlying TCP socket *before* they hit the high-level WebSocket parsing engine. It programmatically sweeps through the byte arrays and clears bits 4 and 5 (`chunk[pos] &= 0xCF`) from header byte 0 of every frame, completely masking out the problematic RSV2+RSV3 mask (`0x30`). This achieves perpetual camera connection uptime.
+### 1. Raw TCP Socket Interceptor (`installEyeRSVPatcher`)
+Under high-volume image loops, the ESP32 third-party WebSocket library occasionally sets reserved protocol header bits (RSV2 and RSV3) inside individual frame packages. Standard Node.js WebSocket libraries (such as `ws` 8.x) treat these as a framing violation and immediately terminate the connection (`Invalid WebSocket frame: RSV2 and RSV3 must be clear`).
+* **The Solution in `server.js`:** A custom middleware hook (`installEyeRSVPatcher`) intercepts raw data buffers coming out of the Eye's underlying TCP socket *before* they hit the high-level WebSocket parser. It programmatically sweeps through the byte arrays and clears bits 4 and 5 (`chunk[pos] &= 0xCF`) from header byte 0 of every frame, completely masking out the problematic RSV2+RSV3 mask (`0x30`).
 
 ### 2. Binary ArrayBuffer HTML5 Canvas Pipeline
 To completely bypass browser rendering lag, frame build backlogs, and sudden UI freezes caused by browser engine Garbage Collection (GC) loops, the classic frontend pattern using `URL.createObjectURL` and `URL.revokeObjectURL` has been completely purged.
-* **The Solution Live in `index.html`:** The video websocket communication is cast explicitly to `arraybuffer` format. Incoming data is decoded on the fly into individual binary image arrays and painted directly onto an HTML5 `<canvas>` rendering target. This layout extracts the end-to-end millisecond timestamps embedded into the binary frame wrapper, exposing a real-time `Frame Age @ Render` telemetry counter on the dashboard interface.
+* **The Solution in `index.html`:** The video websocket communication is cast explicitly to `arraybuffer` format. Incoming data is decoded on the fly into individual binary image arrays and painted directly onto an HTML5 `<canvas>` rendering target. This layout extracts the end-to-end millisecond timestamps embedded into the binary frame wrapper, exposing a real-time `Frame Age @ Render` telemetry counter on the dashboard interface.
 
 ### 3. Stateful Control Validation & Disconnect Safety Gate
 The web dashboard enforces an event-locked state model. UI keydown triggers an explicit `start` command, while keyup fires a deterministic `stop` action. To prevent a vehicle from running away if a connection drops mid-stride, a server-side disconnect hook tracks the `muscleSocket` connection health. If the socket closes or experiences an unexpected drop, the server bypasses the UI and automatically transmits a hardwired wire stop (`S`) straight down to the locomotion board.
 
 ---
 
-## 🎯 Vetted Technical Roadmap & Next Objectives
+## 🚀 Quick Start Guide
 
-The following open architecture tasks are ready for immediate execution the moment a new development session or AI agent is initialized.
+### 1. Spin up the Node.js Relay Server
+```bash
+cd Remote_Relay_Server
+npm install
+npm start
+```
+
+### 2. Expose the Server using Cloudflare Tunnel
+```bash
+# Generate public ephemeral edge routing node
+npx cloudflared tunnel --url http://localhost:3000
+```
+
+### 3. Deploy ESP32-S3 Firmwares
+* Flash `Firmware_Eye_OV3660.ino` to **System 1 (Vision ESP32)**.
+* Flash `Firmware_Muscle_OV2640.ino` to **System 2 (Drivetrain ESP32)**.
+* Ensure both point to your public Cloudflare Tunnel URL!
+
+---
+
+## 🎯 Vetted Technical Roadmap
 
 ### Part A: Immediate Tactical Optimizations (MJPEG/WebSockets Pipeline)
-1. **Enforce TCP Low-Latency Rules:** Inject `socket.setNoDelay(true);` onto the underlying TCP sockets within `server.js` across the incoming robot lanes and outgoing subscriber pathways to completely bypass Nagle's algorithm packet batching delays.
-2. **Egress Backpressure Drop Logic:** Add a `dashboardSocket.bufferedAmount > 0` validation inside the relay's video fanout loop. If the browser's internet pipe is congested, immediately discard the current incoming frame and wait for the next newest frame to force an unconditional "latest-frame-wins" execution layer.
-3. **Downscale the JPEG Footprint:** Modify `config.jpeg_quality` within `M:\Robot Projects\ElegooRobot\Firmware_Eye_OV3660\Firmware_Eye_OV3660.ino` from `25` to a more compressed value of `42`. This downscales the network payload footprint to let frames glide past WAN tunnel constraints.
+* [ ] **Enforce TCP Low-Latency Rules:** Inject `socket.setNoDelay(true);` onto the underlying TCP sockets within `server.js` to completely bypass Nagle's algorithm packet batching delays.
+* [ ] **Egress Backpressure Drop Logic:** Add a `dashboardSocket.bufferedAmount > 0` validation inside the relay's video fanout loop to discard old frames and prioritize "latest-frame-wins" execution.
+* [ ] **Downscale the JPEG Footprint:** Modify `config.jpeg_quality` within `Firmware_Eye_OV3660.ino` from `25` to `42` to optimize payloads.
 
-### Part B: Deep-Dive Protocol Transitions (Industrial Teleoperation Upgrades)
-1. **WebRTC Integration on ESP32-S3:** Investigate utilizing the open-source `esp_peer` component library or the Stream Video ESP32 SDK layer. Shifting your vision system from TCP WebSockets to native UDP-based WebRTC allows for real-time video transmission that completely ignores dropped packets, dropping end-to-end video age below 200ms across wide-area networks.
-2. **Persistent Named Tunnels:** Upgrade the connection configuration away from public, ephemeral Cloudflare Quick Tunnels (`trycloudflare.com`) to a static, authenticated, free-tier Named Cloudflare Tunnel. This anchors your server behind a permanent, dedicated edge routing node and provides a consistent domain name bookmark that remains identical through every system restart.
+### Part B: Deep-Dive Protocol Transitions (Industrial Upgrades)
+* [ ] **WebRTC Integration on ESP32-S3:** Migrate from TCP WebSockets to native UDP-based WebRTC to drop end-to-end video age below 200ms across wide-area networks.
+* [ ] **Persistent Named Tunnels:** Upgrade from public, ephemeral Cloudflare Quick Tunnels to a static, authenticated Named Tunnel for permanent dedicated edge routing.
 
 ---
 
@@ -116,5 +139,8 @@ Building custom WAN-teleoperated rovers requires endless hours of hardware troub
 
 Your sponsorship helps fund new hardware testing, upcoming features (like WebRTC migration & real-time IMU telemetry mapping), and keeps this open-source engineering alive.
 
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Support%20the%20Project-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/rorrimaesu)
-```
+<p align="center">
+  <a href="https://www.buymeacoffee.com/rorrimaesu">
+    <img src="https://img.shields.io/badge/Support_My_Work-Buy%20Me%20A%20Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" alt="Buy Me A Coffee button" />
+  </a>
+</p>
