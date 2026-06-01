@@ -4,6 +4,7 @@ const WebSocket = require('ws');
 const path = require('path');
 
 const app = express();
+app.use(express.json()); // Support JSON payload parsing for remote debugging
 const server = http.createServer(app);
 // perMessageDeflate explicitly disabled: the ESP32 WebSocketsClient library negotiates
 // compression extensions but does not always honour RSV bit rules when the server rejects
@@ -192,6 +193,16 @@ function flushLatestFrame(client) {
 app.use(express.static(path.join(__dirname, '../Remote_Control_Dashboard')));
 
 // --- WebRTC WHEP Reverse Proxy (go2rtc Bridge) ---
+// --- Remote Debugging Log Endpoint ---
+app.post('/api/log', (req, res) => {
+    const { type, msg, ua } = req.body;
+    let device = 'Mobile';
+    if (ua.includes('Windows')) device = 'PC';
+    else if (ua.includes('Macintosh')) device = 'Mac';
+    console.log(`[Browser ${device}] [${type.toUpperCase()}] ${msg}`);
+    res.sendStatus(200);
+});
+
 // Proxies WHEP HTTP POST signaling handshakes directly to the local go2rtc server.
 // This allows both the Dashboard and WebRTC video to run over a single Cloudflare Quick Tunnel!
 app.post('/api/whep', (req, res) => {

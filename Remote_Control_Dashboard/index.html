@@ -560,6 +560,43 @@
     </footer>
 
     <script>
+        // --- Remote Mobile Debugger ---
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+
+        function sendRemoteLog(type, args) {
+            const msg = Array.from(args).map(arg => {
+                if (typeof arg === 'object') {
+                    try { return JSON.stringify(arg); } catch (_) { return String(arg); }
+                }
+                return String(arg);
+            }).join(' ');
+
+            fetch('/api/log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type, msg, ua: navigator.userAgent })
+            }).catch(() => {});
+        }
+
+        console.log = function() {
+            originalLog.apply(console, arguments);
+            sendRemoteLog('log', arguments);
+        };
+        console.error = function() {
+            originalError.apply(console, arguments);
+            sendRemoteLog('error', arguments);
+        };
+        console.warn = function() {
+            originalWarn.apply(console, arguments);
+            sendRemoteLog('warn', arguments);
+        };
+
+        window.addEventListener('error', (event) => {
+            sendRemoteLog('window-error', [event.message, event.filename, event.lineno]);
+        });
+
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const controlWsUrl = `${protocol}//${window.location.host}/control-stream`;
 
