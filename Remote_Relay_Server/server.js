@@ -218,6 +218,29 @@ app.post('/api/whep', (req, res) => {
     });
 });
 
+// --- WebRTC MJPEG Stream Fallback Proxy ---
+// Proxies the local go2rtc raw MJPEG stream directly over Port 3000 to browser clients.
+// This allows a seamless, firewall-penetrating fallback when UDP WebRTC is blocked.
+app.get('/api/stream.mjpeg', (req, res) => {
+    const proxyReq = http.request({
+        host: '127.0.0.1',
+        port: 1984,
+        path: '/api/stream.mjpeg?src=robot_eye_mjpeg',
+        method: 'GET',
+        headers: req.headers
+    }, (proxyRes) => {
+        res.writeHead(proxyRes.statusCode, proxyRes.headers);
+        proxyRes.pipe(res);
+    });
+
+    proxyReq.on('error', (err) => {
+        console.error('[MJPEG Proxy] Failed to connect to go2rtc on Port 1984:', err.message);
+        res.status(502).send('go2rtc gateway offline');
+    });
+
+    proxyReq.end();
+});
+
 // Status diagnostic endpoint
 app.get('/status', (req, res) => {
     res.json({

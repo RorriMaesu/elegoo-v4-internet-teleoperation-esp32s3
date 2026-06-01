@@ -364,7 +364,8 @@
             }
 
             .video-container canvas,
-            .video-container video {
+            .video-container video,
+            .video-container img {
                 width: 100% !important;
                 height: 100% !important;
                 object-fit: contain !important;
@@ -479,6 +480,7 @@
         <div class="glass-panel">
             <div class="video-container">
                 <video id="cameraStream" autoplay playsinline muted></video>
+                <img id="mjpegFallback" style="display: none;" alt="MJPEG Fallback Stream">
                 <div class="video-overlay">
                     <div id="live-dot" class="live-dot"></div>
                     <span id="stream-label">STREAM OFFLINE</span>
@@ -571,6 +573,9 @@
         let controlPingTimer = null;
         const pendingPings = new Map();
 
+        let webrtcTimeout = null;
+        let isFallbackActive = false;
+
         const statusEl = document.getElementById('sys-status');
         const robotStatusEl = document.getElementById('robot-status');
         const lastCmdEl = document.getElementById('last-cmd');
@@ -605,7 +610,18 @@
             }
         }
 
-        async function connectWebRTCVideo() {
+        function activateMJPEGStream() {
+            if (isFallbackActive) return;
+            isFallbackActive = true;
+
+            if (webrtcTimeout) {
+                clearTimeout(webrtcTimeout);
+                webrtcTimeout = null;
+            }
+
+            console.warn("WebRTC UDP connection blocked or timed out. Falling back to HTTP MJPEG stream...");
+
+            // Stop WebRTC PeerConnection silently
             if (pc) {
                 pc.close();
                 pc = null;
@@ -615,9 +631,65 @@
                 statsInterval = null;
             }
 
+            // Toggle tags
+            const videoTag = document.getElementById('cameraStream');
+            const fallbackImg = document.getElementById('mjpegFallback');
+
+            videoTag.style.display = 'none';
+            videoTag.srcObject = null;
+
+            if (fallbackImg) {
+                fallbackImg.style.display = 'block';
+                fallbackImg.src = `/api/stream.mjpeg?t=${Date.now()}`;
+            }
+
+            // Update Telemetry Indicators
+            liveDot.classList.add('active');
+            streamLabel.innerText = "LIVE TCP MJPEG (FALLBACK)";
+            
+            frameAgeEl.innerText = "~30 FPS";
+            latencyEl.innerText = "TCP Relay";
+            
+            robotStatusEl.innerText = "Online";
+            robotStatusEl.className = "tel-value status-online";
+            updateSystemStatus();
+        }
+
+        async function connectWebRTCVideo() {
+            if (webrtcTimeout) {
+                clearTimeout(webrtcTimeout);
+                webrtcTimeout = null;
+            }
+
+            if (pc) {
+                pc.close();
+                pc = null;
+            }
+            if (statsInterval) {
+                clearInterval(statsInterval);
+                statsInterval = null;
+            }
+
+            isFallbackActive = false;
+            const videoTag = document.getElementById('cameraStream');
+            const fallbackImg = document.getElementById('mjpegFallback');
+
+            videoTag.style.display = 'block';
+            if (fallbackImg) {
+                fallbackImg.style.display = 'none';
+                fallbackImg.src = '';
+            }
+
             console.log("Initiating WebRTC WHEP connection to /api/whep...");
             liveDot.classList.remove('active');
             streamLabel.innerText = "STREAM CONNECTING...";
+
+            // Setup WebRTC Timeout for 3.5 seconds
+            webrtcTimeout = setTimeout(() => {
+                if (!isFallbackActive) {
+                    activateMJPEGStream();
+                }
+            }, 3500);
 
             pc = new RTCPeerConnection({
                 iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
@@ -626,7 +698,16 @@
             // Handle incoming track
             pc.ontrack = (event) => {
                 console.log("WebRTC video track received!");
-                const videoTag = document.getElementById('cameraStream');
+                if (webrtcTimeout) {
+                    clearTimeout(webrtcTimeout);
+                    webrtcTimeout = null;
+                }
+
+                if (fallbackImg) {
+                    fallbackImg.style.display = 'none';
+                    fallbackImg.src = '';
+                }
+                videoTag.style.display = 'block';
                 videoTag.srcObject = event.streams[0];
                 
                 liveDot.classList.add('active');
@@ -642,9 +723,13 @@
             pc.onconnectionstatechange = () => {
                 console.log(`WebRTC Connection State: ${pc.connectionState}`);
                 if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-                    console.warn("WebRTC connection lost. Reconnecting in 2 seconds...");
-                    cleanupWebRTC();
-                    setTimeout(connectWebRTCVideo, 2000);
+                    if (webrtcTimeout) {
+                        clearTimeout(webrtcTimeout);
+                        webrtcTimeout = null;
+                    }
+                    if (!isFallbackActive) {
+                        activateMJPEGStream();
+                    }
                 }
             };
 
@@ -679,13 +764,23 @@
                 startStatsMonitoring();
             } catch (err) {
                 console.error("Failed to establish WebRTC WHEP connection:", err);
-                streamLabel.innerText = "STREAM ERROR";
-                cleanupWebRTC();
-                setTimeout(connectWebRTCVideo, 5000); // retry after 5 seconds
+                if (webrtcTimeout) {
+                    clearTimeout(webrtcTimeout);
+                    webrtcTimeout = null;
+                }
+                if (!isFallbackActive) {
+                    activateMJPEGStream();
+                }
             }
         }
 
         function cleanupWebRTC() {
+            if (webrtcTimeout) {
+                clearTimeout(webrtcTimeout);
+                webrtcTimeout = null;
+            }
+            isFallbackActive = false;
+
             if (pc) {
                 pc.close();
                 pc = null;
@@ -696,6 +791,14 @@
             }
             const videoTag = document.getElementById('cameraStream');
             videoTag.srcObject = null;
+            videoTag.style.display = 'block';
+
+            const fallbackImg = document.getElementById('mjpegFallback');
+            if (fallbackImg) {
+                fallbackImg.style.display = 'none';
+                fallbackImg.src = '';
+            }
+
             liveDot.classList.remove('active');
             streamLabel.innerText = "STREAM OFFLINE";
             latencyEl.innerText = "-- ms";
