@@ -11,7 +11,7 @@ streams:
   robot_eye_src: http://192.168.1.214:80/stream
   robot_eye:
     - ffmpeg:http://127.0.0.1:1984/api/stream.mjpeg?src=robot_eye_src#video=h264
-  robot_eye_mjpeg: robot_eye_src
+  robot_eye_mjpeg: http://127.0.0.1:1984/api/stream.mjpeg?src=robot_eye_src
 
 # Specify the local ffmpeg path and override H264 preset for mobile browser compatibility
 ffmpeg:
