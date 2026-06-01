@@ -18,12 +18,13 @@ ffmpeg:
 
 # WebRTC and WHEP signaling configuration
 webrtc:
-  # Listen port for local WebRTC candidates (STUN/ICE handles WAN)
   listen: ":8555"
+  ice_servers: []
 
 # Configure HTTP API Server (default go2rtc port is 1984)
 api:
   listen: ":1984"
+  origin: "*"
 
 # Logging configuration
 log:

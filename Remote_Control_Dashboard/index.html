@@ -575,6 +575,7 @@
 
         let webrtcTimeout = null;
         let isFallbackActive = false;
+        let fallbackRefreshInterval = null;
 
         const statusEl = document.getElementById('sys-status');
         const robotStatusEl = document.getElementById('robot-status');
@@ -584,6 +585,20 @@
         const liveDot = document.getElementById('live-dot');
         const streamLabel = document.getElementById('stream-label');
         const stopButton = document.getElementById('btn-S');
+
+        // High-frequency catch-up script to destroy browser video element buffer drift
+        const video = document.getElementById('cameraStream');
+        if (video) {
+            video.addEventListener('timeupdate', () => {
+                if (video.buffered.length > 0) {
+                    const liveEdge = video.buffered.end(video.buffered.length - 1);
+                    const latency = liveEdge - video.currentTime;
+                    if (latency > 0.25) {
+                        video.currentTime = liveEdge - 0.05; 
+                    }
+                }
+            });
+        }
 
         const directionToButton = {
             forward: document.getElementById('btn-F'),
@@ -641,6 +656,16 @@
             if (fallbackImg) {
                 fallbackImg.style.display = 'block';
                 fallbackImg.src = `/api/stream.mjpeg?t=${Date.now()}`;
+
+                // Periodically reset the image tag to force browser to dump local TCP buffer backlog
+                if (fallbackRefreshInterval) {
+                    clearInterval(fallbackRefreshInterval);
+                }
+                fallbackRefreshInterval = setInterval(() => {
+                    if (isFallbackActive && fallbackImg) {
+                        fallbackImg.src = `/api/stream.mjpeg?t=${Date.now()}`;
+                    }
+                }, 8000); // clear accumulated latency every 8 seconds
             }
 
             // Update Telemetry Indicators
@@ -659,6 +684,10 @@
             if (webrtcTimeout) {
                 clearTimeout(webrtcTimeout);
                 webrtcTimeout = null;
+            }
+            if (fallbackRefreshInterval) {
+                clearInterval(fallbackRefreshInterval);
+                fallbackRefreshInterval = null;
             }
 
             if (pc) {
@@ -778,6 +807,10 @@
             if (webrtcTimeout) {
                 clearTimeout(webrtcTimeout);
                 webrtcTimeout = null;
+            }
+            if (fallbackRefreshInterval) {
+                clearInterval(fallbackRefreshInterval);
+                fallbackRefreshInterval = null;
             }
             isFallbackActive = false;
 

@@ -214,7 +214,11 @@ app.post('/api/whep', (req, res) => {
 
     proxyReq.on('error', (err) => {
         console.error('[WebRTC Proxy] Failed to connect to go2rtc on Port 1984:', err.message);
-        res.status(502).send('go2rtc gateway offline');
+        if (!res.headersSent) {
+            res.status(502).send('go2rtc gateway offline');
+        } else {
+            res.end();
+        }
     });
 });
 
@@ -222,6 +226,14 @@ app.post('/api/whep', (req, res) => {
 // Proxies the local go2rtc raw MJPEG stream directly over Port 3000 to browser clients.
 // This allows a seamless, firewall-penetrating fallback when UDP WebRTC is blocked.
 app.get('/api/stream.mjpeg', (req, res) => {
+    // Disable Nagle's algorithm and proxy buffering to prevent frame latency build-up
+    req.socket.setNoDelay(true);
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Prevents proxy and gateway buffering
+
     const proxyReq = http.request({
         host: '127.0.0.1',
         port: 1984,
@@ -235,7 +247,11 @@ app.get('/api/stream.mjpeg', (req, res) => {
 
     proxyReq.on('error', (err) => {
         console.error('[MJPEG Proxy] Failed to connect to go2rtc on Port 1984:', err.message);
-        res.status(502).send('go2rtc gateway offline');
+        if (!res.headersSent) {
+            res.status(502).send('go2rtc gateway offline');
+        } else {
+            res.end();
+        }
     });
 
     proxyReq.end();
